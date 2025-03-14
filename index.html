@@ -3,10 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple HTML Page</title>
+    <title>Aegir Bounce</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            color: black;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(270deg, red, orange, yellow, green, cyan, blue, violet);
+            background-size: 400% 400%;
+        }
+
+        #aegir-container {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #aegir {
+            width: 200px;
+            height: auto;
+        }
+        #aegir-text {
+            margin-top: 5px;
+            white-space: nowrap;
+        }
+    </style>
 </head>
 <body>
-    <h1>Welcome to My Simple HTML Page</h1>
-    <p>This is a basic HTML file with a heading and a paragraph.</p>
+    <div id="aegir-container">
+        <img src="aegir.png" id="aegir" alt="Aegir">
+        <div id="aegir-text">
+            <h1>
+                Really?
+            </h1>
+        </div>
+    </div>
+    <script>
+        const aegirContainer = document.getElementById("aegir-container");
+        let x = 100, y = 100;
+        let dx = 1.5, dy = 1.5;
+        const speed = 2;
+
+        function moveImage() {
+            const screenWidth = window.innerWidth - aegirContainer.clientWidth;
+            const screenHeight = window.innerHeight - aegirContainer.clientHeight;
+
+            x += dx * speed;
+            y += dy * speed;
+
+            if (x <= 0 || x >= screenWidth) {
+                dx *= -1;
+            }
+            if (y <= 0 || y >= screenHeight) {
+                dy *= -1;
+            }
+
+            aegirContainer.style.left = x + "px";
+            aegirContainer.style.top = y + "px";
+
+            requestAnimationFrame(moveImage);
+        }
+        
+        function changeBackground() {
+            let hue = 0;
+            setInterval(() => {
+                document.body.style.background = `hsl(${hue}, 100%, 50%)`;
+                hue = (hue + 1) % 360;
+            }, 50);
+        }
+        
+        window.onload = () => {
+            moveImage();
+            changeBackground();
+        };
+    </script>
 </body>
 </html>
