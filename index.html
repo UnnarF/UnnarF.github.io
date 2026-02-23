@@ -120,17 +120,26 @@ function parseCSV(text) {
   const headers = lines[0].split(",");
 
   for (let i = 1; i < lines.length; i++) {
-    // match quoted values or unquoted
     const values = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
     if (!values) continue;
 
     let obj = {};
     headers.forEach((h, j) => {
-      let val = values[j]?.replace(/^"|"$/g, "").trim();
+      let val = values[j] ?? "";
+
+      // remove wrapping quotes only, do not trim spaces
+      if(val.startsWith('"') && val.endsWith('"')) {
+        val = val.slice(1, -1);
+      }
 
       // convert numeric columns
       if(h === "Distance [km]" || h === "Elevation gain [m]") {
         val = parseFloat(val);
+      }
+
+      // trim URL to avoid about:blank
+      if(h === "URL") {
+        val = val.trim();
       }
 
       obj[h] = val;
