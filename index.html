@@ -137,7 +137,10 @@ function render() {
   hikes.forEach(hike => {
     const card = document.createElement("div");
     card.className = "card";
-    card.onclick = () => window.open(hike.URL, "_blank");
+    card.onclick = () => {
+      const link = hike.URL.trim();   // remove whitespace
+      if(link) window.open(link, "_blank");
+    };
 
     card.innerHTML = `
       <div class="title">${hike.Title}</div>
