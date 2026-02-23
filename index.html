@@ -114,7 +114,7 @@ let hikes = [];
 let ascending = true;
 
 async function loadData() {
-  const response = await fetch(CSV_URL + "?t=" + Date.now());
+  const response = await fetch(CSV_URL + "&t=" + Date.now());
   const text = await response.text();
   const rows = text.trim().split("\n").map(r => r.split(","));
 
