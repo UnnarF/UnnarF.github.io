@@ -113,19 +113,41 @@ const CSV_URL = "https://docs.google.com/spreadsheets/d/1sXcqe8lXiCrlxepad7yFOir
 let hikes = [];
 let ascending = true;
 
-async function loadData() {
-  const response = await fetch(CSV_URL + "&t=" + Date.now());
-  const text = await response.text();
-  const rows = text.trim().split("\n").map(r => r.split(","));
+// Robust CSV parser: handles quotes and numeric conversion
+function parseCSV(text) {
+  const rows = [];
+  const lines = text.trim().split("\n");
+  const headers = lines[0].split(",");
 
-  const headers = rows[0];
-  hikes = rows.slice(1).map(row => {
+  for (let i = 1; i < lines.length; i++) {
+    // match quoted values or unquoted
+    const values = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
+    if (!values) continue;
+
     let obj = {};
-    headers.forEach((h, i) => obj[h] = row[i]);
-    obj["Distance [km]"] = parseFloat(obj["Distance [km]"]);
-    obj["Elevation gain [m]"] = parseFloat(obj["Elevation gain [m]"]);
-    return obj;
-  });
+    headers.forEach((h, j) => {
+      let val = values[j]?.replace(/^"|"$/g, "").trim();
+
+      // convert numeric columns
+      if(h === "Distance [km]" || h === "Elevation gain [m]") {
+        val = parseFloat(val);
+      }
+
+      obj[h] = val;
+    });
+
+    rows.push(obj);
+  }
+  return rows;
+}
+
+async function loadData() {
+  const url = new URL(CSV_URL);
+  url.searchParams.set("t", Date.now()); // cache-buster
+
+  const response = await fetch(url);
+  const text = await response.text();
+  hikes = parseCSV(text);
 
   render();
 }
@@ -138,7 +160,7 @@ function render() {
     const card = document.createElement("div");
     card.className = "card";
     card.onclick = () => {
-      const link = hike.URL.trim();   // remove whitespace
+      const link = (hike.URL || "").trim();
       if(link) window.open(link, "_blank");
     };
 
@@ -169,8 +191,8 @@ function sortData() {
       return ascending ? a[field] - b[field] : b[field] - a[field];
     } else {
       return ascending
-        ? a[field].localeCompare(b[field])
-        : b[field].localeCompare(a[field]);
+        ? (a[field] || "").localeCompare(b[field] || "")
+        : (b[field] || "").localeCompare(a[field] || "");
     }
   });
 
@@ -178,7 +200,6 @@ function sortData() {
 }
 
 document.getElementById("sortField").addEventListener("change", sortData);
-
 document.getElementById("sortDirection").addEventListener("click", () => {
   ascending = !ascending;
   document.getElementById("sortDirection").innerText = ascending ? "↑" : "↓";
