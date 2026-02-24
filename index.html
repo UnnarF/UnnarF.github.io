@@ -70,9 +70,15 @@ button {
   margin-bottom: 8px;
 }
 
-.region {
+.difficulty {
   font-size: 14px;
   color: #666;
+  margin-bottom: 4px;
+}
+
+.time {
+  font-size: 13px;
+  color: #888;
   margin-bottom: 12px;
 }
 
@@ -97,9 +103,7 @@ button {
   <div class="controls">
     <select id="sortField">
       <option value="Title">Title</option>
-      <option value="Svæði">Svæði</option>
       <option value="Distance [km]">Distance</option>
-      <option value="Elevation gain [m]">Elevation Gain</option>
     </select>
     <button id="sortDirection">↑</button>
   </div>
@@ -113,52 +117,83 @@ const CSV_URL = "https://docs.google.com/spreadsheets/d/1sXcqe8lXiCrlxepad7yFOir
 let hikes = [];
 let ascending = true;
 
-// Robust CSV parser: handles quotes and numeric conversion
 function parseCSV(text) {
   const rows = [];
   const lines = text.trim().split("\n");
-  const headers = lines[0].split(",");
+  const headers = lines[0].split(",").map(h => h.trim());
 
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
-    if (!values) continue;
+    const values = [];
+    let current = "";
+    let insideQuotes = false;
+
+    for (let char of lines[i]) {
+      if (char === '"') {
+        insideQuotes = !insideQuotes;
+      } else if (char === "," && !insideQuotes) {
+        values.push(current);
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+    values.push(current);
 
     let obj = {};
     headers.forEach((h, j) => {
-      let val = values[j] ?? "";
+      let val = (values[j] || "").trim();
 
-      // remove wrapping quotes only, do not trim spaces
-      if(val.startsWith('"') && val.endsWith('"')) {
+      if (val.startsWith('"') && val.endsWith('"')) {
         val = val.slice(1, -1);
       }
 
-      // convert numeric columns
-      if(h === "Distance [km]" || h === "Elevation gain [m]") {
+      if (h === "Distance [km]" || h === "Elevation gain [m]") {
         val = parseFloat(val);
-      }
-
-      // trim URL to avoid about:blank
-      if(h === "URL") {
-        val = val.trim();
       }
 
       obj[h] = val;
     });
 
+    const distance = obj["Distance [km]"] || 0;
+    const elevation = obj["Elevation gain [m]"] || 0;
+
+    // Shenandoah difficulty
+    const difficultyScore = Math.sqrt(4.077 * distance * elevation);
+
+    let difficulty;
+    if (difficultyScore < 50) difficulty = "Very Easy";
+    else if (difficultyScore < 100) difficulty = "Easy";
+    else if (difficultyScore < 150) difficulty = "Moderate";
+    else if (difficultyScore < 200) difficulty = "Hard";
+    else difficulty = "Very Hard";
+
+    obj["Difficulty"] = difficulty;
+
+    // Estimated time (hours)
+    const hoursDecimal =
+      distance / (3.82 * Math.exp(-6.15e-4 * elevation));
+
+    const totalMinutes = Math.round(hoursDecimal * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    obj["EstimatedTimeFormatted"] = `${hours} hr ${minutes} min`;
+
     rows.push(obj);
   }
+
   return rows;
 }
 
 async function loadData() {
   const url = new URL(CSV_URL);
-  url.searchParams.set("t", Date.now()); // cache-buster
+  url.searchParams.set("t", Date.now());
 
   const response = await fetch(url);
   const text = await response.text();
   hikes = parseCSV(text);
 
-  render();
+  sortData();
 }
 
 function render() {
@@ -168,21 +203,25 @@ function render() {
   hikes.forEach(hike => {
     const card = document.createElement("div");
     card.className = "card";
-    card.onclick = () => {
-      const link = (hike.URL || "").trim();
-      if(link) window.open(link, "_blank");
-    };
+
+    card.addEventListener("click", () => {
+      const link = hike.URL;
+      if (link && link.startsWith("http")) {
+        window.open(link, "_blank");
+      }
+    });
 
     card.innerHTML = `
-      <div class="title">${hike.Title}</div>
-      <div class="region">${hike["Svæði"]}</div>
+      <div class="title">${hike.Title || ""}</div>
+      <div class="difficulty">${hike.Difficulty}</div>
+      <div class="time">Time: ${hike.EstimatedTimeFormatted}</div>
       <div class="stats">
         <div class="stat">
-          <span>${hike["Distance [km]"]}</span>
+          <span>${hike["Distance [km]"] ?? ""}</span>
           km
         </div>
         <div class="stat">
-          <span>${hike["Elevation gain [m]"]}</span>
+          <span>${hike["Elevation gain [m]"] ?? ""}</span>
           m gain
         </div>
       </div>
@@ -196,8 +235,10 @@ function sortData() {
   const field = document.getElementById("sortField").value;
 
   hikes.sort((a, b) => {
-    if (typeof a[field] === "number") {
-      return ascending ? a[field] - b[field] : b[field] - a[field];
+    if (field === "Distance [km]") {
+      return ascending
+        ? (a[field] ?? 0) - (b[field] ?? 0)
+        : (b[field] ?? 0) - (a[field] ?? 0);
     } else {
       return ascending
         ? (a[field] || "").localeCompare(b[field] || "")
