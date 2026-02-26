@@ -171,8 +171,12 @@ function parseCSV(text) {
 
     // Estimated time (hours)
     const hoursDecimal =
-      distance / (3.82 * Math.exp(-6.15e-4 * elevation));
-
+      distance /
+      (
+        -Math.atan((elevation - 350) / 400) +
+        3.23 -
+        (Math.sqrt(elevation) / 200)
+      );
     const totalMinutes = Math.round(hoursDecimal * 60);
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
